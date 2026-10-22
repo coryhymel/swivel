@@ -106,6 +106,9 @@
 
     const busy = active && state.loading[`${active.accountId}:${active.service}`];
     cardEl.classList.toggle('loading', !!busy);
+    // Report now (the slot may have just been unhidden) and again after paint;
+    // rAF alone never fires while the window isn't being painted.
+    reportBounds();
     requestAnimationFrame(reportBounds);
   }
 
