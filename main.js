@@ -17,9 +17,17 @@ const serviceById = (id) => SERVICES.find((s) => s.id === id);
 
 const PALETTE = ['#1a73e8', '#d93025', '#188038', '#e37400', '#9334e6', '#007b83', '#b31412', '#5f6368'];
 
-// Google rejects sign-in from user agents that advertise Electron, so present
-// as the plain Chrome build Electron is based on.
-app.userAgentFallback = app.userAgentFallback.replace(/\s(?:Electron|shift|Shift)\/\S+/g, '');
+// Present as the Chrome build Electron is based on: no Electron/app tokens, and
+// the reduced version (156.0.0.0) real Chrome sends instead of the full build.
+const CHROME_MAJOR = process.versions.chrome.split('.')[0];
+app.userAgentFallback = app.userAgentFallback
+  .replace(/\s(?:Electron|shift|Shift)\/\S+/g, '')
+  .replace(/Chrome\/[\d.]+/, `Chrome/${CHROME_MAJOR}.0.0.0`);
+
+// Google's sign-in rejects embedded browsers ("This browser or app may not be
+// secure"). Following Ferdium, pages on accounts.google.com get the same UA
+// without a Chrome version once they have loaded. See signInIdentity().
+const SIGN_IN_USER_AGENT = app.userAgentFallback.replace(/Chrome\/[\d.]+/, 'Chrome');
 
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) app.quit();
@@ -122,8 +130,19 @@ function attachShortcuts(webContents) {
   });
 }
 
+// Switch the UA only after a main-frame navigation has committed (did-navigate).
+// Changing it while a navigation or redirect is pending makes Electron restart
+// that navigation, which loops redirects and breaks form POSTs (e.g. SAML).
+function signInIdentity(wc) {
+  wc.on('did-navigate', (_e, url) => {
+    const ua = url.startsWith('https://accounts.google.com') ? SIGN_IN_USER_AGENT : app.userAgentFallback;
+    if (wc.getUserAgent() !== ua) wc.setUserAgent(ua);
+  });
+}
+
 function wireWebContents(wc, accountId, serviceId) {
   attachShortcuts(wc);
+  signInIdentity(wc);
 
   wc.setWindowOpenHandler(({ url }) => {
     const target = unwrapGoogleRedirect(url);
@@ -143,6 +162,7 @@ function wireWebContents(wc, accountId, serviceId) {
 
   wc.on('did-create-window', (child) => {
     attachShortcuts(child.webContents);
+    signInIdentity(child.webContents);
     // A popup that lands somewhere outside Google belongs in the default browser.
     child.webContents.on('did-navigate', (_e, url) => {
       const target = unwrapGoogleRedirect(url);
