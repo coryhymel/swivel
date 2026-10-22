@@ -7,6 +7,7 @@ const { app, BrowserWindow, WebContentsView, ipcMain, session, shell, Menu } = r
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
+const { fileURLToPath } = require('url');
 
 const SERVICES = [
   { id: 'mail', name: 'Gmail', url: 'https://mail.google.com/mail/u/0/' },
@@ -116,8 +117,25 @@ function configureSession(accountId) {
   configuredSessions.add(accountId);
   const ses = session.fromPartition(partitionFor(accountId));
   ses.setUserAgent(app.userAgentFallback);
-  const allowed = new Set(['notifications', 'clipboard-sanitized-write', 'clipboard-read', 'media', 'fullscreen']);
-  ses.setPermissionRequestHandler((_wc, permission, callback) => callback(allowed.has(permission)));
+  // Electron grants every permission by default. Only Google's own pages get
+  // the few they need, and only Meet gets the camera and microphone.
+  ses.setPermissionRequestHandler((_wc, permission, callback, details) =>
+    callback(permitted(permission, details.requestingUrl)),
+  );
+  ses.setPermissionCheckHandler((_wc, permission, requestingOrigin) => permitted(permission, requestingOrigin));
+}
+
+const PERMISSIONS = {
+  notifications: isGoogleHost,
+  'clipboard-sanitized-write': isGoogleHost,
+  'clipboard-read': isGoogleHost,
+  fullscreen: isGoogleHost,
+  media: (host) => host === 'meet.google.com',
+};
+
+function permitted(permission, url) {
+  const rule = PERMISSIONS[permission];
+  return Boolean(rule && url && url.startsWith('https://') && rule(hostOf(url)));
 }
 
 function attachShortcuts(webContents) {
@@ -140,14 +158,13 @@ function signInIdentity(wc) {
   });
 }
 
-function wireWebContents(wc, accountId, serviceId) {
-  attachShortcuts(wc);
-  signInIdentity(wc);
-
+// Pop-ups: Google pages (Docs, Meet, attachments) open in a Shift window signed
+// in to the same account; anything else goes to the default browser. Applied
+// to every level of pop-up, not just the first.
+function guardPopups(wc, accountId) {
   wc.setWindowOpenHandler(({ url }) => {
     const target = unwrapGoogleRedirect(url);
     if (target === 'about:blank' || isGoogleHost(hostOf(target))) {
-      // Google popups (Docs, Meet, attachments) stay signed in to this account.
       return {
         action: 'allow',
         overrideBrowserWindowOptions: {
@@ -163,6 +180,7 @@ function wireWebContents(wc, accountId, serviceId) {
   wc.on('did-create-window', (child) => {
     attachShortcuts(child.webContents);
     signInIdentity(child.webContents);
+    guardPopups(child.webContents, accountId);
     // A popup that lands somewhere outside Google belongs in the default browser.
     child.webContents.on('did-navigate', (_e, url) => {
       const target = unwrapGoogleRedirect(url);
@@ -172,6 +190,12 @@ function wireWebContents(wc, accountId, serviceId) {
       }
     });
   });
+}
+
+function wireWebContents(wc, accountId, serviceId) {
+  attachShortcuts(wc);
+  signInIdentity(wc);
+  guardPopups(wc, accountId);
 
   if (serviceId === 'mail') {
     wc.on('page-title-updated', (_e, title) => {
@@ -297,16 +321,47 @@ function runShortcut(action) {
 
 // ------------------------------------------------------------------- IPC ----
 
-ipcMain.handle('shift:getState', () => snapshot());
+// Only Shift's own UI may use these channels: the top frame of the app window,
+// showing renderer/index.html. (Google pages have no preload, so they can't
+// reach IPC at all; this guards against the window ever showing anything else.)
+const RENDERER_PATH = path.join(__dirname, 'renderer', 'index.html').toLowerCase();
 
-ipcMain.handle('shift:show', (_e, accountId, serviceId) => show(accountId, serviceId));
+function fromShiftUi(event) {
+  const frame = event.senderFrame;
+  if (!win || event.sender !== win.webContents || !frame || frame !== win.webContents.mainFrame) return false;
+  try {
+    return fileURLToPath(frame.url.split(/[?#]/)[0]).toLowerCase() === RENDERER_PATH;
+  } catch {
+    return false;
+  }
+}
 
-ipcMain.handle('shift:addAccount', (_e, { label, color } = {}) => {
+function handle(channel, fn) {
+  ipcMain.handle(channel, (event, ...args) => {
+    if (!fromShiftUi(event)) throw new Error(`Rejected ${channel} from untrusted sender`);
+    return fn(event, ...args);
+  });
+}
+
+function listen(channel, fn) {
+  ipcMain.on(channel, (event, ...args) => {
+    if (fromShiftUi(event)) fn(event, ...args);
+  });
+}
+
+const isColor = (value) => typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value);
+const cleanLabel = (value) => (typeof value === 'string' ? value.trim().slice(0, 40) : '');
+
+handle('shift:getState', () => snapshot());
+
+handle('shift:show', (_e, accountId, serviceId) => show(accountId, serviceId));
+
+handle('shift:addAccount', (_e, { label, color } = {}) => {
   const account = {
     id: crypto.randomUUID(),
-    label: (label || '').trim() || `Account ${config.accounts.length + 1}`,
+    label: cleanLabel(label) || `Account ${config.accounts.length + 1}`,
     email: null,
-    color: color || PALETTE[config.accounts.length % PALETTE.length],
+    color: isColor(color) ? color : PALETTE[config.accounts.length % PALETTE.length],
   };
   config.accounts.push(account);
   saveConfig();
@@ -314,17 +369,17 @@ ipcMain.handle('shift:addAccount', (_e, { label, color } = {}) => {
   return account;
 });
 
-ipcMain.handle('shift:updateAccount', (_e, id, patch = {}) => {
+handle('shift:updateAccount', (_e, id, patch = {}) => {
   const account = findAccount(id);
   if (!account) return null;
-  if (typeof patch.label === 'string' && patch.label.trim()) account.label = patch.label.trim();
-  if (typeof patch.color === 'string') account.color = patch.color;
+  if (cleanLabel(patch.label)) account.label = cleanLabel(patch.label);
+  if (isColor(patch.color)) account.color = patch.color;
   saveConfig();
   broadcast();
   return account;
 });
 
-ipcMain.handle('shift:removeAccount', async (_e, id) => {
+handle('shift:removeAccount', async (_e, id) => {
   if (!findAccount(id)) return;
   destroyAccountViews(id);
   delete unread[id];
@@ -341,7 +396,8 @@ ipcMain.handle('shift:removeAccount', async (_e, id) => {
   }
 });
 
-ipcMain.handle('shift:reorderAccounts', (_e, ids) => {
+handle('shift:reorderAccounts', (_e, ids) => {
+  if (!Array.isArray(ids)) return;
   const byId = new Map(config.accounts.map((a) => [a.id, a]));
   const ordered = ids.map((id) => byId.get(id)).filter(Boolean);
   if (ordered.length !== config.accounts.length) return;
@@ -350,22 +406,18 @@ ipcMain.handle('shift:reorderAccounts', (_e, ids) => {
   broadcast();
 });
 
-ipcMain.on('shift:setContentBounds', (_e, rect) => {
-  contentBounds = {
-    x: Math.round(rect.x),
-    y: Math.round(rect.y),
-    width: Math.max(0, Math.round(rect.width)),
-    height: Math.max(0, Math.round(rect.height)),
-  };
+listen('shift:setContentBounds', (_e, rect) => {
+  const n = (value) => (Number.isFinite(value) ? Math.round(value) : 0);
+  contentBounds = { x: n(rect?.x), y: n(rect?.y), width: Math.max(0, n(rect?.width)), height: Math.max(0, n(rect?.height)) };
   layoutViews();
 });
 
-ipcMain.on('shift:setOverlay', (_e, open) => {
+listen('shift:setOverlay', (_e, open) => {
   overlay = Boolean(open);
   layoutViews();
 });
 
-ipcMain.on('shift:navigate', (_e, action) => {
+listen('shift:navigate', (_e, action) => {
   const view = activeView();
   if (!view) return;
   if (action === 'reload') view.webContents.reload();
@@ -400,6 +452,10 @@ function createWindow() {
   if (saved.maximized) win.maximize();
 
   attachShortcuts(win.webContents);
+  // The app window only ever shows Shift's own UI: no navigating away (e.g. a
+  // link or file dropped onto it) and no pop-ups from it.
+  win.webContents.on('will-navigate', (event) => event.preventDefault());
+  win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
 
   win.on('close', () => {
