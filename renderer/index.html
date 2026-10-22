@@ -2,28 +2,85 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:" />
     <title>Shift</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <nav id="accounts" aria-label="Accounts"></nav>
-    <main>
-      <header>
-        <div id="services" role="tablist" aria-label="Services"></div>
+    <nav id="rail" aria-label="Accounts">
+      <div id="accounts" class="rail-list"></div>
+      <button id="add-btn" class="add" type="button" aria-label="Add account" title="Add account">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+    </nav>
+
+    <div id="main">
+      <header id="topbar">
+        <div id="identity" aria-live="polite"></div>
+        <div class="tools">
+          <button id="back-btn" class="icon-btn" type="button" aria-label="Back" title="Back (Alt+Left)">
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <button id="reload-btn" class="icon-btn" type="button" aria-label="Reload" title="Reload (F5)">
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M19 12a7 7 0 1 1-2.2-5.1M19 4v4.5h-4.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <span class="sep" aria-hidden="true"></span>
+          <div id="services" class="segmented" role="tablist" aria-label="Services"></div>
+        </div>
       </header>
-      <!-- The native Google page is laid over this element. -->
-      <section id="content"></section>
-    </main>
-    <dialog id="add-account">
-      <form method="dialog">
-        <label>Label <input name="label" placeholder="Work" autofocus /></label>
-        <menu>
-          <button value="cancel" formnovalidate>Cancel</button>
-          <button value="add">Add &amp; sign in</button>
-        </menu>
+
+      <div id="card">
+        <div id="accent"></div>
+        <div id="loading" aria-hidden="true"></div>
+        <!-- The native Google page is laid over this element. -->
+        <section id="content" aria-label="Content"></section>
+        <div id="welcome" hidden>
+          <div class="welcome-inner">
+            <svg viewBox="0 0 64 64" width="72" height="72" aria-hidden="true">
+              <rect x="6" y="14" width="52" height="38" rx="8" fill="#e8f0fe"/>
+              <path d="M12 22l20 15 20-15" fill="none" stroke="#1a73e8" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+              <circle cx="50" cy="16" r="9" fill="#188038"/>
+              <path d="M50 12v8M46 16h8" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>
+            </svg>
+            <h1>Welcome to Shift</h1>
+            <p>Add a Google account to get started. Gmail, Calendar and Drive for every account, one click apart.</p>
+            <button id="welcome-add" class="primary" type="button">Add a Google account</button>
+            <p class="hint">Switch accounts with Ctrl+1&hellip;9, services with Alt+1/2/3.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <dialog id="dlg" aria-labelledby="dlg-title">
+      <form id="dlg-form" method="dialog" novalidate>
+        <h2 id="dlg-title"></h2>
+        <p id="dlg-note" class="note" hidden></p>
+        <label class="field">Label
+          <input id="dlg-label" name="label" maxlength="30" autocomplete="off" placeholder="Work" />
+        </label>
+        <fieldset class="field">
+          <legend>Color</legend>
+          <div id="dlg-colors" class="swatches" role="radiogroup" aria-label="Account color"></div>
+        </fieldset>
+        <div class="dlg-actions">
+          <button id="dlg-remove" class="danger" type="button" hidden>Remove&hellip;</button>
+          <span class="grow"></span>
+          <button id="dlg-cancel" type="button">Cancel</button>
+          <button id="dlg-ok" class="primary" type="submit">Save</button>
+        </div>
       </form>
+      <div id="dlg-confirm" hidden>
+        <h2>Remove <span id="confirm-name"></span>?</h2>
+        <p class="note">This signs <strong id="confirm-email"></strong> out of Shift and deletes its saved login on this computer. Your Google account itself is not affected.</p>
+        <div class="dlg-actions">
+          <span class="grow"></span>
+          <button id="confirm-cancel" type="button">Keep account</button>
+          <button id="confirm-ok" class="danger solid" type="button">Remove and sign out</button>
+        </div>
+      </div>
     </dialog>
+
     <script src="mock-api.js"></script>
     <script src="renderer.js"></script>
   </body>
