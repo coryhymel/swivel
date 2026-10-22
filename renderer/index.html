@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:" />
+    <title>Shift</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <nav id="accounts" aria-label="Accounts"></nav>
+    <main>
+      <header>
+        <div id="services" role="tablist" aria-label="Services"></div>
+      </header>
+      <!-- The native Google page is laid over this element. -->
+      <section id="content"></section>
+    </main>
+    <dialog id="add-account">
+      <form method="dialog">
+        <label>Label <input name="label" placeholder="Work" autofocus /></label>
+        <menu>
+          <button value="cancel" formnovalidate>Cancel</button>
+          <button value="add">Add &amp; sign in</button>
+        </menu>
+      </form>
+    </dialog>
+    <script src="mock-api.js"></script>
+    <script src="renderer.js"></script>
+  </body>
+</html>

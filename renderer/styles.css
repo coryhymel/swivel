@@ -1,0 +1,91 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  height: 100vh;
+  display: flex;
+  font: 13px system-ui, sans-serif;
+  background: #fff;
+  overflow: hidden;
+}
+
+#accounts {
+  width: 56px;
+  background: #ececec;
+  border-right: 1px solid #ccc;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 0;
+}
+
+.account {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+  position: relative;
+}
+
+.account.active {
+  outline: 2px solid #202124;
+  outline-offset: 2px;
+}
+
+.account .badge {
+  position: absolute;
+  top: -6px;
+  right: -8px;
+  background: #d93025;
+  color: #fff;
+  border-radius: 8px;
+  font-size: 10px;
+  padding: 0 4px;
+}
+
+.add {
+  background: #fff;
+  color: #5f6368;
+  border: 1px dashed #999;
+}
+
+main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 0 8px 8px;
+}
+
+header {
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+#services button {
+  border: 0;
+  background: none;
+  padding: 6px 8px;
+  cursor: pointer;
+  border-radius: 6px;
+}
+
+#services button[aria-selected='true'] {
+  background: #e8f0fe;
+  color: #1967d2;
+  font-weight: 600;
+}
+
+#content {
+  flex: 1;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  background: #f2f2f2;
+}
