@@ -32,5 +32,3 @@ talks to the main process, and the keyboard shortcuts.
 
 The chrome is design A, "Classic" (see [DESIGN.md](DESIGN.md)). Open
 `renderer/index.html` in a browser to preview it with sample accounts.
-Two other candidates were explored and are kept on the `design/b-rail` and
-`design/c-command` branches.
