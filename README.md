@@ -28,8 +28,9 @@ Click **+** to add an account, then sign in to Google in the page that opens.
 See [DESIGN_CONTRACT.md](DESIGN_CONTRACT.md) for how the UI layer (`renderer/`)
 talks to the main process, and the keyboard shortcuts.
 
-## Design candidates
+## UI
 
-Three UI directions live in git worktrees under `.worktrees/`, one branch each.
-Run `npm install && npm start` inside any of them, or open its
-`renderer/index.html` in a browser to preview with sample accounts.
+The chrome is design A, "Classic" (see [DESIGN.md](DESIGN.md)). Open
+`renderer/index.html` in a browser to preview it with sample accounts.
+Two other candidates were explored and are kept on the `design/b-rail` and
+`design/c-command` branches.
