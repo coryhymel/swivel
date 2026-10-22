@@ -103,13 +103,35 @@ function hostOf(url) {
   }
 }
 
-// Gmail wraps outbound links in https://www.google.com/url?q=<target>.
+// Gmail wraps outbound links in https://www.google.com/url?q=<target>,
+// sometimes more than once.
 function unwrapGoogleRedirect(url) {
-  try {
-    const u = new URL(url);
-    if (isGoogleHost(u.hostname) && u.pathname === '/url') return u.searchParams.get('q') || u.searchParams.get('url') || url;
-  } catch {}
+  for (let i = 0; i < 5; i++) {
+    let inner = null;
+    try {
+      const u = new URL(url);
+      if (isGoogleHost(u.hostname) && u.pathname === '/url') inner = u.searchParams.get('q') || u.searchParams.get('url');
+    } catch {}
+    if (!inner) break;
+    url = inner;
+  }
   return url;
+}
+
+// Which pop-ups stay in a Shift window. From Gmail and Calendar that's only
+// the app itself and sign-in: every link (Meet and Docs included) goes to the
+// default browser. Drive keeps Google pages (Docs) in Shift, signed in to the
+// account.
+const IN_APP_HOSTS = {
+  mail: ['mail.google.com', 'accounts.google.com'],
+  calendar: ['calendar.google.com', 'accounts.google.com'],
+};
+
+function staysInApp(url, serviceId) {
+  if (url === 'about:blank') return true;
+  const host = hostOf(url);
+  const hosts = IN_APP_HOSTS[serviceId];
+  return hosts ? hosts.includes(host) : isGoogleHost(host);
 }
 
 function configureSession(accountId) {
@@ -158,13 +180,13 @@ function signInIdentity(wc) {
   });
 }
 
-// Pop-ups: Google pages (Docs, Meet, attachments) open in a Shift window signed
-// in to the same account; anything else goes to the default browser. Applied
-// to every level of pop-up, not just the first.
-function guardPopups(wc, accountId) {
+// Pop-ups the service keeps (see staysInApp) open in a Shift window signed in
+// to the same account; anything else goes to the default browser. Applied to
+// every level of pop-up, not just the first.
+function guardPopups(wc, accountId, serviceId) {
   wc.setWindowOpenHandler(({ url }) => {
     const target = unwrapGoogleRedirect(url);
-    if (target === 'about:blank' || isGoogleHost(hostOf(target))) {
+    if (staysInApp(target, serviceId)) {
       return {
         action: 'allow',
         overrideBrowserWindowOptions: {
@@ -180,11 +202,15 @@ function guardPopups(wc, accountId) {
   wc.on('did-create-window', (child) => {
     attachShortcuts(child.webContents);
     signInIdentity(child.webContents);
-    guardPopups(child.webContents, accountId);
-    // A popup that lands somewhere outside Google belongs in the default browser.
-    child.webContents.on('did-navigate', (_e, url) => {
+    guardPopups(child.webContents, accountId, serviceId);
+    // Gmail opens some links as a blank pop-up and points it at the link
+    // afterwards. Hand those to the default browser as soon as they start
+    // loading. (Server redirects aren't checked: sign-in and attachments
+    // redirect through other hosts as part of Google's own flows.)
+    child.webContents.on('did-start-navigation', ({ url, isMainFrame, isSameDocument }) => {
+      if (!isMainFrame || isSameDocument) return;
       const target = unwrapGoogleRedirect(url);
-      if (!isGoogleHost(hostOf(target)) && /^https?:/.test(target)) {
+      if (!staysInApp(target, serviceId) && /^https?:/.test(target)) {
         shell.openExternal(target);
         child.close();
       }
@@ -195,7 +221,7 @@ function guardPopups(wc, accountId) {
 function wireWebContents(wc, accountId, serviceId) {
   attachShortcuts(wc);
   signInIdentity(wc);
-  guardPopups(wc, accountId);
+  guardPopups(wc, accountId, serviceId);
 
   if (serviceId === 'mail') {
     wc.on('page-title-updated', (_e, title) => {

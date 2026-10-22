@@ -22,8 +22,10 @@ Click **+** to add an account, then sign in to Google in the page that opens.
 - The user agent is plain Chrome (the `Electron/x` token is stripped), which
   Google requires for sign-in.
 - Unread counts and the account's email address come from Gmail's tab title.
-- Links to non-Google sites open in your default browser; Google pop-ups (Docs,
-  Meet, attachments) open in a Shift window signed in to the same account.
+- Links in Gmail and Calendar open in your default browser, Google ones (Docs,
+  Meet) included; only the app's own pop-ups (compose, print) and sign-in stay
+  in Shift. In Drive, Google pop-ups (Docs) open in a Shift window signed in to
+  the same account, and other sites go to the browser.
 
 See [DESIGN_CONTRACT.md](DESIGN_CONTRACT.md) for how the UI layer (`renderer/`)
 talks to the main process, and the keyboard shortcuts.
