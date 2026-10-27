@@ -1,0 +1,58 @@
+name: Bug report
+description: Something in Swivel doesn't work the way it should.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting! Please don't include email addresses, message contents or screenshots of your inbox.
+        Security problems go to the [security policy](https://github.com/coryhymel/swivel/security/policy) instead.
+  - type: input
+    id: version
+    attributes:
+      label: Swivel version
+      description: Shown in Settings → Apps → Installed apps, or in the installer file name.
+      placeholder: "0.1.0"
+    validations:
+      required: true
+  - type: input
+    id: windows
+    attributes:
+      label: Windows version
+      placeholder: "Windows 11 24H2"
+    validations:
+      required: true
+  - type: dropdown
+    id: service
+    attributes:
+      label: Where does it happen?
+      multiple: true
+      options:
+        - Gmail
+        - Calendar
+        - Drive
+        - Google sign-in
+        - Swivel's own UI (account rail, top bar, dialogs)
+        - Installer / updates
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Add a second account
+        2. Press Ctrl+2
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else?
+      description: Error messages, how often it happens, whether `npm start` behaves the same.

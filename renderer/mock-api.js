@@ -1,10 +1,10 @@
-// Stand-in for window.shift when renderer/index.html is opened in a normal
+// Stand-in for window.swivel when renderer/index.html is opened in a normal
 // browser (no Electron). Lets a design be previewed and screenshotted with
 // sample accounts. The content slot is painted with a placeholder instead of a
 // real Google page. Load this before renderer.js.
 
 (function () {
-  if (window.shift) return;
+  if (window.swivel) return;
 
   const services = [
     { id: 'mail', name: 'Gmail', url: 'https://mail.google.com/mail/u/0/' },
@@ -16,9 +16,9 @@
   // ?accounts=0 previews the empty / first-run state.
   const params = new URLSearchParams(location.search);
   const sample = [
-    { id: 'work', label: 'Work', email: 'cory.hymel@andela.com', color: '#1a73e8' },
-    { id: 'personal', label: 'Personal', email: 'cory.hymel@gmail.com', color: '#188038' },
-    { id: 'side', label: 'Side project', email: 'hello@shift.dev', color: '#e37400' },
+    { id: 'work', label: 'Work', email: 'alex@example.com', color: '#1a73e8' },
+    { id: 'personal', label: 'Personal', email: 'alex.personal@example.com', color: '#188038' },
+    { id: 'side', label: 'Side project', email: 'hello@example.com', color: '#e37400' },
   ].slice(0, params.has('accounts') ? Number(params.get('accounts')) : 3);
 
   const state = {
@@ -42,10 +42,10 @@
 
   // Paints a fake page where the native WebContentsView would sit.
   function paint() {
-    let el = document.getElementById('__shift-mock-view');
+    let el = document.getElementById('__swivel-mock-view');
     if (!el) {
       el = document.createElement('div');
-      el.id = '__shift-mock-view';
+      el.id = '__swivel-mock-view';
       Object.assign(el.style, {
         position: 'fixed',
         zIndex: '1',
@@ -79,7 +79,7 @@
       <span style="font-size:12px">(live Google page renders here in the app)</span>`;
   }
 
-  window.shift = {
+  window.swivel = {
     isPreview: true,
     getState: async () => structuredClone(state),
     onState: (cb) => (stateListeners.add(cb), () => stateListeners.delete(cb)),
@@ -138,9 +138,9 @@
     const index = state.accounts.findIndex((a) => a.id === state.active?.accountId);
     if (action.startsWith('account:')) {
       const target = state.accounts[Number(action.slice(8))];
-      if (target) window.shift.show(target.id, state.active?.service || 'mail');
+      if (target) window.swivel.show(target.id, state.active?.service || 'mail');
     } else if (action.startsWith('service:') && index >= 0) {
-      window.shift.show(state.active.accountId, action.slice(8));
+      window.swivel.show(state.active.accountId, action.slice(8));
     }
     shortcutListeners.forEach((cb) => cb(action));
   });

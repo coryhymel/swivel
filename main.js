@@ -1,4 +1,4 @@
-// Shift — main process.
+// Swivel — main process.
 // Owns accounts, one persistent session partition per Google account, and one
 // WebContentsView per (account, service). The renderer (renderer/) only draws
 // the chrome around the content slot and talks to us through preload.js.
@@ -22,7 +22,7 @@ const PALETTE = ['#1a73e8', '#d93025', '#188038', '#e37400', '#9334e6', '#007b83
 // the reduced version (156.0.0.0) real Chrome sends instead of the full build.
 const CHROME_MAJOR = process.versions.chrome.split('.')[0];
 app.userAgentFallback = app.userAgentFallback
-  .replace(/\s(?:Electron|shift|Shift)\/\S+/g, '')
+  .replace(/\s(?:Electron|swivel|Swivel)\/\S+/g, '')
   .replace(/Chrome\/[\d.]+/, `Chrome/${CHROME_MAJOR}.0.0.0`);
 
 // Google's sign-in rejects embedded browsers ("This browser or app may not be
@@ -35,7 +35,7 @@ if (!gotLock) app.quit();
 
 // ---------------------------------------------------------------- config ----
 
-const configFile = () => path.join(app.getPath('userData'), 'shift-config.json');
+const configFile = () => path.join(app.getPath('userData'), 'swivel-config.json');
 let config = { accounts: [], active: null, windowBounds: null };
 
 function loadConfig() {
@@ -52,7 +52,7 @@ function saveConfig() {
 }
 
 // Optional per-design window options, so a design can change the frame
-// without touching this file. See DESIGN_CONTRACT.md.
+// without touching this file. See docs/ARCHITECTURE.md.
 function loadWindowOptions() {
   try {
     return JSON.parse(fs.readFileSync(path.join(__dirname, 'renderer', 'window.json'), 'utf8'));
@@ -87,7 +87,7 @@ function snapshot() {
 }
 
 function broadcast() {
-  if (win && !win.isDestroyed()) win.webContents.send('shift:state', snapshot());
+  if (win && !win.isDestroyed()) win.webContents.send('swivel:state', snapshot());
 }
 
 // ----------------------------------------------------------------- views ----
@@ -118,9 +118,9 @@ function unwrapGoogleRedirect(url) {
   return url;
 }
 
-// Which pop-ups stay in a Shift window. From Gmail and Calendar that's only
+// Which pop-ups stay in a Swivel window. From Gmail and Calendar that's only
 // the app itself and sign-in: every link (Meet and Docs included) goes to the
-// default browser. Drive keeps Google pages (Docs) in Shift, signed in to the
+// default browser. Drive keeps Google pages (Docs) in Swivel, signed in to the
 // account.
 const IN_APP_HOSTS = {
   mail: ['mail.google.com', 'accounts.google.com'],
@@ -180,7 +180,7 @@ function signInIdentity(wc) {
   });
 }
 
-// Pop-ups the service keeps (see staysInApp) open in a Shift window signed in
+// Pop-ups the service keeps (see staysInApp) open in a Swivel window signed in
 // to the same account; anything else goes to the default browser. Applied to
 // every level of pop-up, not just the first.
 function guardPopups(wc, accountId, serviceId) {
@@ -342,17 +342,17 @@ function runShortcut(action) {
     win.webContents.toggleDevTools();
   }
   // Every shortcut is also forwarded so the design can react (e.g. the palette).
-  if (win && !win.isDestroyed()) win.webContents.send('shift:shortcut', action);
+  if (win && !win.isDestroyed()) win.webContents.send('swivel:shortcut', action);
 }
 
 // ------------------------------------------------------------------- IPC ----
 
-// Only Shift's own UI may use these channels: the top frame of the app window,
+// Only Swivel's own UI may use these channels: the top frame of the app window,
 // showing renderer/index.html. (Google pages have no preload, so they can't
 // reach IPC at all; this guards against the window ever showing anything else.)
 const RENDERER_PATH = path.join(__dirname, 'renderer', 'index.html').toLowerCase();
 
-function fromShiftUi(event) {
+function fromSwivelUi(event) {
   const frame = event.senderFrame;
   if (!win || event.sender !== win.webContents || !frame || frame !== win.webContents.mainFrame) return false;
   try {
@@ -364,25 +364,25 @@ function fromShiftUi(event) {
 
 function handle(channel, fn) {
   ipcMain.handle(channel, (event, ...args) => {
-    if (!fromShiftUi(event)) throw new Error(`Rejected ${channel} from untrusted sender`);
+    if (!fromSwivelUi(event)) throw new Error(`Rejected ${channel} from untrusted sender`);
     return fn(event, ...args);
   });
 }
 
 function listen(channel, fn) {
   ipcMain.on(channel, (event, ...args) => {
-    if (fromShiftUi(event)) fn(event, ...args);
+    if (fromSwivelUi(event)) fn(event, ...args);
   });
 }
 
 const isColor = (value) => typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value);
 const cleanLabel = (value) => (typeof value === 'string' ? value.trim().slice(0, 40) : '');
 
-handle('shift:getState', () => snapshot());
+handle('swivel:getState', () => snapshot());
 
-handle('shift:show', (_e, accountId, serviceId) => show(accountId, serviceId));
+handle('swivel:show', (_e, accountId, serviceId) => show(accountId, serviceId));
 
-handle('shift:addAccount', (_e, { label, color } = {}) => {
+handle('swivel:addAccount', (_e, { label, color } = {}) => {
   const account = {
     id: crypto.randomUUID(),
     label: cleanLabel(label) || `Account ${config.accounts.length + 1}`,
@@ -395,7 +395,7 @@ handle('shift:addAccount', (_e, { label, color } = {}) => {
   return account;
 });
 
-handle('shift:updateAccount', (_e, id, patch = {}) => {
+handle('swivel:updateAccount', (_e, id, patch = {}) => {
   const account = findAccount(id);
   if (!account) return null;
   if (cleanLabel(patch.label)) account.label = cleanLabel(patch.label);
@@ -405,7 +405,7 @@ handle('shift:updateAccount', (_e, id, patch = {}) => {
   return account;
 });
 
-handle('shift:removeAccount', async (_e, id) => {
+handle('swivel:removeAccount', async (_e, id) => {
   if (!findAccount(id)) return;
   destroyAccountViews(id);
   delete unread[id];
@@ -422,7 +422,7 @@ handle('shift:removeAccount', async (_e, id) => {
   }
 });
 
-handle('shift:reorderAccounts', (_e, ids) => {
+handle('swivel:reorderAccounts', (_e, ids) => {
   if (!Array.isArray(ids)) return;
   const byId = new Map(config.accounts.map((a) => [a.id, a]));
   const ordered = ids.map((id) => byId.get(id)).filter(Boolean);
@@ -432,18 +432,18 @@ handle('shift:reorderAccounts', (_e, ids) => {
   broadcast();
 });
 
-listen('shift:setContentBounds', (_e, rect) => {
+listen('swivel:setContentBounds', (_e, rect) => {
   const n = (value) => (Number.isFinite(value) ? Math.round(value) : 0);
   contentBounds = { x: n(rect?.x), y: n(rect?.y), width: Math.max(0, n(rect?.width)), height: Math.max(0, n(rect?.height)) };
   layoutViews();
 });
 
-listen('shift:setOverlay', (_e, open) => {
+listen('swivel:setOverlay', (_e, open) => {
   overlay = Boolean(open);
   layoutViews();
 });
 
-listen('shift:navigate', (_e, action) => {
+listen('swivel:navigate', (_e, action) => {
   const view = activeView();
   if (!view) return;
   if (action === 'reload') view.webContents.reload();
@@ -464,7 +464,7 @@ function createWindow() {
     y: saved.y,
     minWidth: options.minWidth || 800,
     minHeight: options.minHeight || 560,
-    title: 'Shift',
+    title: 'Swivel',
     backgroundColor: options.backgroundColor || '#ffffff',
     autoHideMenuBar: true,
     ...(options.titleBarStyle ? { titleBarStyle: options.titleBarStyle } : {}),
@@ -478,7 +478,7 @@ function createWindow() {
   if (saved.maximized) win.maximize();
 
   attachShortcuts(win.webContents);
-  // The app window only ever shows Shift's own UI: no navigating away (e.g. a
+  // The app window only ever shows Swivel's own UI: no navigating away (e.g. a
   // link or file dropped onto it) and no pop-ups from it.
   win.webContents.on('will-navigate', (event) => event.preventDefault());
   win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
@@ -500,6 +500,22 @@ function createWindow() {
   });
 }
 
+// --------------------------------------------------------------- updates ----
+
+// Installed builds check GitHub Releases for a newer version, download it in
+// the background and install it on quit (Windows shows a notification). Dev
+// runs (`npm start`) skip this.
+const UPDATE_INTERVAL = 6 * 60 * 60 * 1000;
+
+function startAutoUpdates() {
+  if (!app.isPackaged) return;
+  const { autoUpdater } = require('electron-updater');
+  autoUpdater.on('error', (err) => console.error('Update check failed:', err.message));
+  const check = () => autoUpdater.checkForUpdatesAndNotify().catch(() => {});
+  check();
+  setInterval(check, UPDATE_INTERVAL);
+}
+
 app.on('second-instance', () => {
   if (!win) return;
   if (win.isMinimized()) win.restore();
@@ -511,6 +527,7 @@ app.whenReady().then(() => {
   Menu.setApplicationMenu(null);
   loadConfig();
   createWindow();
+  startAutoUpdates();
 });
 
 app.on('window-all-closed', () => app.quit());

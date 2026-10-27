@@ -1,7 +1,7 @@
 // Design A, Classic: account rail on the left, identity + service switcher on
 // top, the Google page inside a rounded card.
 (function () {
-  const api = window.shift;
+  const api = window.swivel;
   const $ = (id) => document.getElementById(id);
   const accountsEl = $('accounts');
   const servicesEl = $('services');
