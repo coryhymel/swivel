@@ -1,4 +1,8 @@
-# Design A: Classic
+# UI design: "Classic"
+
+The current chrome was picked from three design prototypes. The original
+wireframe is in [images/mockup.jpg](images/mockup.jpg). This page records the
+chosen design's intent so changes stay consistent with it.
 
 ## Concept
 A polished version of the wireframe: a soft gray rail of account circles on the left, a slim top bar, and the Google page in a rounded white card with a thin accent in the current account's color. Standard native window frame, light theme, Segoe UI Variable.
@@ -26,6 +30,3 @@ A polished version of the wireframe: a soft gray rail of account circles on the 
 - Only ~8 accounts fit comfortably before the rail scrolls (it scrolls without a scrollbar).
 - Native `title` tooltips are plain; no drag-to-reorder (API supports it, not built).
 - Fixed-width rail means no account names at a glance, only initials and colors.
-
-## Plumbing requests
-None.
