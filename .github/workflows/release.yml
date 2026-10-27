@@ -13,8 +13,8 @@ jobs:
   release:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
@@ -28,6 +28,13 @@ jobs:
           fi
       - run: npm ci
       - run: npm run check
+      # Create the draft first. electron-builder uploads its files in parallel,
+      # and if no release exists yet, each upload can create its own draft.
+      - name: Create the draft release
+        shell: bash
+        run: gh release create "$GITHUB_REF_NAME" --draft --title "Swivel ${GITHUB_REF_NAME#v}" --notes "See CHANGELOG.md"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Build and upload to a draft release
         run: npx electron-builder --win --publish always
         env:
