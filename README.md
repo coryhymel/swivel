@@ -13,7 +13,7 @@ Switch accounts with one click or <kbd>Ctrl</kbd>+<kbd>1</kbd>…<kbd>9</kbd>. S
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 ![Platform: Windows](https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078d4)
 
-<img src="docs/images/screenshot.png" alt="Swivel's window: a rail of colored account avatars with unread badges on the left, the active account and a Gmail / Calendar / Drive switcher along the top, and the Google page filling the rest." width="860" />
+<img src="docs/images/screenshot.png" alt="Swivel's window: a rail of colored account avatars with unread badges on the left, the active account and a Gmail / Calendar / Drive switcher along the top, and Google Calendar's week view filling the rest." width="860" />
 
 </div>
 
