@@ -95,6 +95,31 @@ function broadcast() {
 const isGoogleHost = (host) =>
   host === 'google.com' || host.endsWith('.google.com') || host.endsWith('.googleusercontent.com');
 
+// Beyond Identity, the passwordless IdP some Workspace domains federate to.
+const isBeyondIdentityHost = (host) =>
+  ['byndid.com', 'beyondidentity.com'].some((domain) => host === domain || host.endsWith(`.${domain}`));
+
+// Desktop authenticator apps a sign-in page may hand off to through a URL
+// scheme, and the hosts allowed to do it. Everything else that tries to open
+// an external app is refused.
+const AUTHENTICATOR_SCHEMES = {
+  'beyond-identity-endpoint:': isBeyondIdentityHost,
+};
+
+function schemeOf(url) {
+  try {
+    return new URL(url).protocol;
+  } catch {
+    return '';
+  }
+}
+
+// True when the page at `fromUrl` may open `targetUrl` in a desktop authenticator.
+function opensAuthenticator(targetUrl, fromUrl) {
+  const rule = AUTHENTICATOR_SCHEMES[schemeOf(targetUrl)];
+  return Boolean(rule && fromUrl && fromUrl.startsWith('https://') && rule(hostOf(fromUrl)));
+}
+
 function hostOf(url) {
   try {
     return new URL(url).hostname;
@@ -141,9 +166,14 @@ function configureSession(accountId) {
   ses.setUserAgent(app.userAgentFallback);
   // Electron grants every permission by default. Only Google's own pages get
   // the few they need, and only Meet gets the camera and microphone.
-  ses.setPermissionRequestHandler((_wc, permission, callback, details) =>
-    callback(permitted(permission, details.requestingUrl)),
-  );
+  ses.setPermissionRequestHandler((_wc, permission, callback, details) => {
+    const allowed =
+      permission === 'openExternal'
+        ? opensAuthenticator(details.externalURL, details.requestingUrl)
+        : permitted(permission, details.requestingUrl);
+    if (!allowed) logDenied(permission, details);
+    callback(allowed);
+  });
   ses.setPermissionCheckHandler((_wc, permission, requestingOrigin) => permitted(permission, requestingOrigin));
 }
 
@@ -153,11 +183,28 @@ const PERMISSIONS = {
   'clipboard-read': isGoogleHost,
   fullscreen: isGoogleHost,
   media: (host) => host === 'meet.google.com',
+  // The Beyond Identity sign-in page talks to its desktop Authenticator on
+  // 127.0.0.1. Electron 45 doesn't gate loopback behind Local Network Access
+  // yet (checked 2026-11); these keep it working once it does. Loopback only:
+  // no page gets the wider local network.
+  'loopback-network': isBeyondIdentityHost,
+  'local-network-access': isBeyondIdentityHost,
 };
 
 function permitted(permission, url) {
   const rule = PERMISSIONS[permission];
   return Boolean(rule && url && url.startsWith('https://') && rule(hostOf(url)));
+}
+
+// Sign-in URLs carry tokens, so log only the origin (and, for openExternal,
+// only the scheme of the target).
+function logDenied(permission, details) {
+  let origin = '';
+  try {
+    origin = new URL(details.requestingUrl).origin;
+  } catch {}
+  const target = permission === 'openExternal' ? ` -> ${schemeOf(details.externalURL) || '?'}` : '';
+  console.warn(`Swivel denied ${permission} for ${origin || '?'}${target}`);
 }
 
 function attachShortcuts(webContents) {
@@ -195,7 +242,7 @@ function guardPopups(wc, accountId, serviceId) {
         },
       };
     }
-    if (/^https?:|^mailto:/.test(target)) shell.openExternal(target);
+    if (/^https?:|^mailto:/.test(target) || opensAuthenticator(target, wc.getURL())) shell.openExternal(target);
     return { action: 'deny' };
   });
 
@@ -210,6 +257,7 @@ function guardPopups(wc, accountId, serviceId) {
     child.webContents.on('did-start-navigation', ({ url, isMainFrame, isSameDocument }) => {
       if (!isMainFrame || isSameDocument) return;
       const target = unwrapGoogleRedirect(url);
+      // An authenticator hand-off is left to the session's openExternal check.
       if (!staysInApp(target, serviceId) && /^https?:/.test(target)) {
         shell.openExternal(target);
         child.close();

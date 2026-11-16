@@ -165,6 +165,14 @@ reason in the pull request.
   all of them except a short list: notifications, clipboard, and fullscreen for
   Google hosts over HTTPS, plus camera and microphone for `meet.google.com`
   only. See `PERMISSIONS` in `main.js`.
+- **Desktop authenticators.** Workspace domains that federate to Beyond
+  Identity sign in through its desktop Authenticator. Only Beyond Identity's
+  own pages (`byndid.com`, `beyondidentity.com`) may launch it through the
+  `beyond-identity-endpoint:` URL scheme and reach it on loopback
+  (`loopback-network`). No page gets the wider local network, and no other
+  page may open an external app. See `AUTHENTICATOR_SCHEMES` in `main.js`.
+  Denied permission requests are logged to the console with the requesting
+  origin only, never the full URL, because sign-in URLs carry tokens.
 - **Links and pop-ups.** Gmail and Calendar keep only their own pop-ups
   (compose, print) and sign-in inside Swivel; every other link, Google's
   included, opens in the default browser. Drive keeps Google pop-ups (Docs) in
