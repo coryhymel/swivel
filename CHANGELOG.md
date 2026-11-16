@@ -6,6 +6,11 @@ All notable changes to Swivel are listed here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+- Signing in to a Google Workspace account that uses Beyond Identity no longer
+  fails with "Failed to Connect to Authenticator": Swivel now lets the Beyond
+  Identity sign-in page launch and talk to the Beyond Identity Authenticator.
+
 ## [0.1.0] - 2026-10-27
 
 First public release.
